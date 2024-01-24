@@ -1,5 +1,6 @@
 from functools import partial
 
+import joblib
 import numpy as np
 import optuna
 from catboost import CatBoostClassifier
@@ -10,7 +11,7 @@ from sklearn.model_selection import StratifiedKFold
 from xgboost import XGBClassifier
 
 
-def optimize(X, y) -> None:
+def optimize(X, y, save_path: str) -> None:
     def _optimize(trial, X, y):
         lgbm_model = LGBMClassifier(**build_lgbm_params(trial))
         xgb_model = XGBClassifier(**build_xgb_params(trial))
@@ -24,7 +25,7 @@ def optimize(X, y) -> None:
             weights=[
                 trial.suggest_float("vc__lgbm_weight", 0.1, 5.0),
                 trial.suggest_float("vc__xgb_weight", 0.1, 5.0),
-                trial.suggest_float("vc__cat_weight", 0.1, 5.0),
+                trial.suggest_float("vc___weight", 0.1, 5.0),
             ],
         )
 
@@ -34,17 +35,18 @@ def optimize(X, y) -> None:
             X_val, y_val = X[val_idx], y[val_idx]
 
             model.fit(X_train, y_train)
-            scores.append(roc_auc_score(y_val, model.predict(X_val)))
+            scores.append(roc_auc_score(y_val, model.predict_proba(X_val)[:, 1]))
 
         return np.mean(scores)
 
-    study = optuna.create_study(direction="maximize")
+    study = optuna.create_study(study_name="bank-churn", direction="maximize")
     study.optimize(
         partial(_optimize, X=X, y=y),  # type: ignore
-        n_trials=200,
+        n_trials=300,
         n_jobs=-1,
         show_progress_bar=True,
     )
+    joblib.dump(study, save_path)
 
 
 def build_lgbm_params(trial):
@@ -55,7 +57,7 @@ def build_lgbm_params(trial):
         "colsample_bytree": trial.suggest_float("lgbm__colsample_bytree", 0.05, 1.0),
         "learning_rate": trial.suggest_float("lgbm__learning_rate", 1e-3, 0.1),
         "max_depth": trial.suggest_int("lgbm__max_depth", 1, 10),
-        "num_leaves": trial.suggest_int("lgbm__num_leaves", 1, 1000),
+        "num_leaves": trial.suggest_int("lgbm__num_leaves", 2, 1000),
         "reg_alpha": trial.suggest_float("lgbm__reg_alpha", 0.05, 1),
         "reg_lambda": trial.suggest_float("lgbm__reg_lambda", 0.05, 1),
         "random_state": 503,
