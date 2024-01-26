@@ -42,7 +42,7 @@ def get_parameters(hyperparameters: Union[str, None]) -> Dict:
             "random_state": 503,
             "objective": "binary:logistic",
             "n_estimators": 973,
-            "learning_rat e": 0.0786311558099196,
+            "learning_rate": 0.0786311558099196,
             "max_depth": 9,
             "subsample": 0.6451633803299511,
             "colsample_bytree": 0.20800229296622322,
